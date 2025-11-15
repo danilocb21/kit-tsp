@@ -10,6 +10,7 @@ using namespace std;
 #define INF 2e18
 
 int N;
+
 struct Solution {
     vector<int> sequence;
     double cost;
@@ -28,8 +29,9 @@ struct InsertionInfo {
 vector<int> chooseRandomNodes();
 set<int> remainingNodes(vector<int> &sequence);
 vector<InsertionInfo> getInsertionCosts(Data &dt, vector<int> &seq);
-Solution Construct(Data &dt);
-Solution getSolutionILS(Data &dt, int maxIter, int maxIterIls);
+Solution Construction(Data &dt);
+void LocalSearch(Data &dt, Solution &s);
+Solution ILS(Data &dt, int maxIter, int maxIterIls);
 
 int main(int argc, char** argv) {
 
@@ -43,7 +45,7 @@ int main(int argc, char** argv) {
     int maxIter = 50;
     int maxIterIls = N >= 150 ? N / 2 : N;
 
-    Solution tsp = getSolutionILS(data, maxIter, maxIterIls);
+    Solution tsp = ILS(data, maxIter, maxIterIls);
 
     cout << "Solução: ";
     for (int x : tsp.sequence) 
@@ -104,7 +106,7 @@ vector<InsertionInfo> getInsertionCosts(Data &dt, vector<int> &seq, set<int> &ca
 }
 
 // Inserção mais barata
-Solution Construct(Data &dt) {
+Solution Construction(Data &dt) {
     Solution sol{};
     sol.sequence = chooseRandomNodes();
     auto &seq = sol.sequence;
@@ -131,13 +133,98 @@ Solution Construct(Data &dt) {
     return sol;
 }
 
-Solution getSolutionILS(Data &dt, int maxIter, int maxIterIls) {
+bool bestImprovementSwap(Data &dt, Solution &s) {
+    double bestDelta = 0.0;
+    int best_i = -1, best_j = -1;
+
+    for (int i = 1; i < s.sequence.size() - 1; i++) {
+        int vi = s.sequence[i];
+        int vi_prev = s.sequence[i-1];
+        int vi_next = s.sequence[i+1];
+
+        for (int j = i + 1; j < s.sequence.size() - 1; j++) {
+            int vj = s.sequence[j];
+            int vj_prev = s.sequence[j-1];
+            int vj_next = s.sequence[j+1];
+
+            double delta;
+            if (i + 1 == j)
+                delta = dt.getDistance(vi_prev, vj) + dt.getDistance(vj, vi) 
+                    + dt.getDistance(vi, vj_next) - dt.getDistance(vi_prev, vi)
+                    - dt.getDistance(vi, vj) - dt.getDistance(vj, vj_next);
+            else
+                delta = dt.getDistance(vi_prev, vj) + dt.getDistance(vj, vi_next) 
+                    + dt.getDistance(vj_prev, vi) + dt.getDistance(vi, vj_next) - dt.getDistance(vi_prev, vi)
+                    - dt.getDistance(vi, vi_next) - dt.getDistance(vj_prev, vj) - dt.getDistance(vj, vj_next);
+
+            if (delta < bestDelta) {
+                bestDelta = delta;
+                best_i = i;
+                best_j = j;
+            }
+        }
+    }
+
+    if (bestDelta < 0) {
+        swap(s.sequence[best_i], s.sequence[best_j]);
+        s.cost += bestDelta;
+        return true;
+    }
+
+    return false;
+}
+
+void LocalSearch(Data &dt, Solution &s) {
+    vector<int> NL = { 1 };
+    bool improved = false;
+
+    while (!NL.empty()) {
+        int n = rand() % NL.size();
+        switch (NL[n])
+        {
+        case 1:
+            improved = bestImprovementSwap(dt, s);
+            break;
+        // case 2:
+        //     improved = bestImprovement2Opt(dt, s);
+        //     break;
+        // case 3:
+        //     improved = bestImprovementOrOpt(dt, s, 1);
+        //     break;
+        // case 4:
+        //     improved = bestImprovementOrOpt(dt, s, 2);
+        //     break;
+        // case 5:
+        //     improved = bestImprovementOrOpt(dt, s, 3);
+        //     break;
+        }
+
+        if (improved)
+            NL = { 1 };
+        else
+            NL.erase(NL.begin() + n);
+    }
+}
+
+Solution ILS(Data &dt, int maxIter, int maxIterIls) {
     Solution bestOfAll;
     bestOfAll.cost = INF;
 
     for (int i = 0; i < maxIter; i++) {
-        Solution s = Construct(dt);
+        Solution s = Construction(dt);
         Solution best = s;
+   
+        int iterIls = 0;
+        
+        while (iterIls <= maxIterIls) {
+            // Busca uma solução vizinha melhor
+            LocalSearch(dt, s);
+            if (s.cost < best.cost) {
+                best = s;
+                iterIls = 0;
+            }
+            iterIls++;
+        }
 
         if (best.cost < bestOfAll.cost)
             bestOfAll = best;
