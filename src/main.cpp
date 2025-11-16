@@ -26,9 +26,14 @@ struct InsertionInfo {
     }
 };
 
+inline int rand_int(int a, int b) {
+    return a + rand() % (b - a + 1);
+}
+
 Solution ILS(Data &dt, int maxIter, int maxIterIls);
 Solution Construction(Data &dt);
 void LocalSearch(Data &dt, Solution &s);
+void Perturbation(Data &dt, Solution &s);
 
 vector<int> chooseRandomNodes();
 set<int> remainingNodes(vector<int> &sequence);
@@ -37,6 +42,8 @@ vector<InsertionInfo> getInsertionCosts(Data &dt, vector<int> &seq, set<int> &ca
 bool bestImprovementSwap(Data &dt, Solution &s);
 bool bestImprovement2Opt(Data &dt, Solution &s);
 bool bestImprovementOrOpt(Data &dt, Solution &s, int blockSize);
+
+void swap_subranges(vector<int> &v, int s1, int len1, int s2, int len2);
 
 int main(int argc, char** argv) {
 
@@ -78,6 +85,9 @@ Solution ILS(Data &dt, int maxIter, int maxIterIls) {
                 best = s;
                 iterIls = 0;
             }
+            if (s.cost > best.cost)
+                s = best;
+            Perturbation(dt, s);
             iterIls++;
         }
 
@@ -100,7 +110,7 @@ Solution Construction(Data &dt) {
         sort(insertionCosts.begin(), insertionCosts.end());
 
         double alpha = (double) rand() / RAND_MAX;
-        int selected = rand() % ((int)ceil(alpha * insertionCosts.size()));
+        int selected = rand_int(0, (int) ceil(alpha * insertionCosts.size()));
         
         auto &x = insertionCosts[selected];
         CL.erase(x.insertedNode);
@@ -122,7 +132,7 @@ void LocalSearch(Data &dt, Solution &s) {
     bool improved = false;
 
     while (!NL.empty()) {
-        int n = rand() % NL.size();
+        int n = rand_int(0, NL.size());
         switch (NL[n])
         {
         case 1:
@@ -149,6 +159,58 @@ void LocalSearch(Data &dt, Solution &s) {
     }
 }
 
+void Perturbation(Data &dt, Solution &s) {
+    int lmin = 2;
+    int lmax = (N + 9) / 10; // ceil(N/10)
+    if (N < 6 || lmax < 2) return;
+
+    auto hasIntersection = [](int a, int b, int c, int d) -> bool {
+        return max(a, c) <= min(b, d);
+    };
+
+    int s1, s2, len1, len2;
+    do {
+        s1 = rand_int(1, N-3);
+        s2 = rand_int(1, N-3);
+
+        int l1max = min(N - 1 - s1, lmax);
+        int l2max = min(N - 1 - s2, lmax);
+        len1 = rand_int(lmin, l1max);
+        len2 = rand_int(lmin, l2max);
+    } while (hasIntersection(s1, s1 + len1 - 1, s2, s2 + len2 - 1));
+
+    if (s1 > s2) {
+        swap(s1,s2);
+        swap(len1,len2);
+    }
+
+    int v1_f = s.sequence[s1];
+    int v1_b = s.sequence[s1+len1-1];
+    int v1_prev = s.sequence[s1-1];
+    int v1_next = s.sequence[s1+len1];
+
+    int v2_f = s.sequence[s2];
+    int v2_b = s.sequence[s2+len2-1];
+    int v2_prev = s.sequence[s2-1];
+    int v2_next = s.sequence[s2+len2];
+
+    double delta;
+    if (v1_next == v2_f) {
+        delta = dt.getDistance(v1_prev, v2_f) + dt.getDistance(v2_b, v1_f)
+            + dt.getDistance(v1_b, v2_next) - dt.getDistance(v1_prev, v1_f)
+            - dt.getDistance(v1_b, v2_f) - dt.getDistance(v2_b, v2_next);
+    }
+    else {
+        delta = dt.getDistance(v1_prev, v2_f) + dt.getDistance(v2_b, v1_next)
+                + dt.getDistance(v2_prev, v1_f) + dt.getDistance(v1_b, v2_next)
+                - dt.getDistance(v1_prev, v1_f) - dt.getDistance(v1_b, v1_next)
+                - dt.getDistance(v2_prev, v2_f) - dt.getDistance(v2_b, v2_next);
+    }
+
+    s.cost += delta;
+    swap_subranges(s.sequence, s1, len1, s2, len2);
+}
+
 vector<int> chooseRandomNodes() {
     vector<int> sequence = { 1 };
 
@@ -158,7 +220,7 @@ vector<int> chooseRandomNodes() {
     // Escolhe 3 nós aleatórios para
     // compor a sequencia inicial
     while (sequence.size() < 4) {
-        int node = rand() % N + 1;
+        int node = rand_int(2, N);
 
         if (vis.count(node)) continue;
 
@@ -321,4 +383,16 @@ bool bestImprovementOrOpt(Data &dt, Solution &s, int blockSize) {
     }
 
     return false;
+}
+
+void swap_subranges(vector<int> &v, int s1, int len1, int s2, int len2) {
+    auto first_seg = v.begin() + s1;
+    auto mid1 = first_seg + len1;
+    auto second_seg = v.begin() + s2;
+    auto mid2 = second_seg + len2;
+
+    reverse(first_seg, mid1);
+    reverse(mid1, second_seg);
+    reverse(second_seg, mid2);
+    reverse(first_seg, mid2);
 }
