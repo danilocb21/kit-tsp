@@ -10,6 +10,7 @@ using namespace std;
 #define INF 2e18
 
 int N;
+vector<vector<double>> g;
 
 struct Solution {
     vector<int> sequence;
@@ -30,18 +31,18 @@ inline int rand_int(int a, int b) {
     return a + rand() % (b - a + 1);
 }
 
-Solution ILS(Data &dt, int maxIter, int maxIterIls);
-Solution Construction(Data &dt);
-void LocalSearch(Data &dt, Solution &s);
-void Perturbation(Data &dt, Solution &s);
+Solution ILS(int maxIter, int maxIterIls);
+Solution Construction();
+void LocalSearch(Solution &s);
+void Perturbation(Solution &s);
 
 vector<int> chooseRandomNodes();
 set<int> remainingNodes(vector<int> &sequence);
-vector<InsertionInfo> getInsertionCosts(Data &dt, vector<int> &seq, set<int> &candidates);
+vector<InsertionInfo> getInsertionCosts(vector<int> &seq, set<int> &candidates);
 
-bool bestImprovementSwap(Data &dt, Solution &s);
-bool bestImprovement2Opt(Data &dt, Solution &s);
-bool bestImprovementOrOpt(Data &dt, Solution &s, int blockSize);
+bool bestImprovementSwap(Solution &s);
+bool bestImprovement2Opt(Solution &s);
+bool bestImprovementOrOpt(Solution &s, int blockSize);
 
 void swap_subranges(vector<int> &v, int s1, int len1, int s2, int len2);
 
@@ -54,10 +55,15 @@ int main(int argc, char** argv) {
 
     N = data.getDimension();
 
+    g.resize(N+1, vector<double>(N+1, 0.0));
+    for (int i = 1; i <= N; i++)
+        for (int j = 1; j <= N; j++)
+            g[i][j] = data.getDistance(i,j);
+
     int maxIter = 50;
     int maxIterIls = N >= 150 ? N / 2 : N;
 
-    Solution tsp = ILS(data, maxIter, maxIterIls);
+    Solution tsp = ILS(maxIter, maxIterIls);
 
     cout << "Solução: ";
     for (int x : tsp.sequence) 
@@ -68,26 +74,25 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-Solution ILS(Data &dt, int maxIter, int maxIterIls) {
+Solution ILS(int maxIter, int maxIterIls) {
     Solution bestOfAll;
     bestOfAll.cost = INF;
 
     for (int i = 0; i < maxIter; i++) {
-        Solution s = Construction(dt);
+        Solution s = Construction();
         Solution best = s;
-   
+
         int iterIls = 0;
         
         while (iterIls <= maxIterIls) {
-            // Busca uma solução vizinha melhor
-            LocalSearch(dt, s);
+            LocalSearch(s);
             if (s.cost < best.cost) {
                 best = s;
                 iterIls = 0;
             }
             if (s.cost > best.cost)
                 s = best;
-            Perturbation(dt, s);
+            Perturbation(s);
             iterIls++;
         }
 
@@ -99,18 +104,18 @@ Solution ILS(Data &dt, int maxIter, int maxIterIls) {
 }
 
 // Inserção mais barata
-Solution Construction(Data &dt) {
+Solution Construction() {
     Solution sol{};
     sol.sequence = chooseRandomNodes();
     auto &seq = sol.sequence;
     auto CL = remainingNodes(seq);
     
     while (!CL.empty()) {
-        auto insertionCosts = getInsertionCosts(dt, seq, CL);
+        auto insertionCosts = getInsertionCosts(seq, CL);
         sort(insertionCosts.begin(), insertionCosts.end());
 
         double alpha = (double) rand() / RAND_MAX;
-        int selected = rand_int(0, (int) ceil(alpha * insertionCosts.size()));
+        int selected = rand_int(0, (int) ceil(alpha * (int)(insertionCosts.size() - 1)));
         
         auto &x = insertionCosts[selected];
         CL.erase(x.insertedNode);
@@ -120,35 +125,34 @@ Solution Construction(Data &dt) {
     for (int a = 0; a < seq.size() - 1; a++) {
         int i = seq[a];
         int j = seq[a + 1];
-        sol.cost += dt.getDistance(i,j);
+        sol.cost += g[i][j];
     }
 
     return sol;
 }
 
-
-void LocalSearch(Data &dt, Solution &s) {
+void LocalSearch(Solution &s) {
     vector<int> NL = { 1, 2, 3, 4, 5 };
     bool improved = false;
 
     while (!NL.empty()) {
-        int n = rand_int(0, NL.size());
+        int n = rand_int(0, NL.size() - 1);
         switch (NL[n])
         {
         case 1:
-            improved = bestImprovementSwap(dt, s);
+            improved = bestImprovementSwap(s);
             break;
         case 2:
-            improved = bestImprovement2Opt(dt, s);
+            improved = bestImprovement2Opt(s);
             break;
         case 3:
-            improved = bestImprovementOrOpt(dt, s, 1); // Reinsertion
+            improved = bestImprovementOrOpt(s, 1); // Reinsertion
             break;
         case 4:
-            improved = bestImprovementOrOpt(dt, s, 2); // Or-opt2
+            improved = bestImprovementOrOpt(s, 2); // Or-opt2
             break;
         case 5:
-            improved = bestImprovementOrOpt(dt, s, 3); // Or-opt3
+            improved = bestImprovementOrOpt(s, 3); // Or-opt3
             break;
         }
 
@@ -159,7 +163,7 @@ void LocalSearch(Data &dt, Solution &s) {
     }
 }
 
-void Perturbation(Data &dt, Solution &s) {
+void Perturbation(Solution &s) {
     int lmin = 2;
     int lmax = (N + 9) / 10; // ceil(N/10)
     if (N < 6 || lmax < 2) return;
@@ -170,13 +174,10 @@ void Perturbation(Data &dt, Solution &s) {
 
     int s1, s2, len1, len2;
     do {
-        s1 = rand_int(1, N-3);
-        s2 = rand_int(1, N-3);
-
-        int l1max = min(N - 1 - s1, lmax);
-        int l2max = min(N - 1 - s2, lmax);
-        len1 = rand_int(lmin, l1max);
-        len2 = rand_int(lmin, l2max);
+        len1 = rand_int(lmin, lmax);
+        len2 = rand_int(lmin, lmax);
+        s1 = rand_int(1, N - 2 - len1);
+        s2 = rand_int(1, N - 2 - len2);
     } while (hasIntersection(s1, s1 + len1 - 1, s2, s2 + len2 - 1));
 
     if (s1 > s2) {
@@ -196,15 +197,15 @@ void Perturbation(Data &dt, Solution &s) {
 
     double delta;
     if (v1_next == v2_f) {
-        delta = dt.getDistance(v1_prev, v2_f) + dt.getDistance(v2_b, v1_f)
-            + dt.getDistance(v1_b, v2_next) - dt.getDistance(v1_prev, v1_f)
-            - dt.getDistance(v1_b, v2_f) - dt.getDistance(v2_b, v2_next);
+        delta = g[v1_prev][v2_f] + g[v2_b][v1_f]
+            + g[v1_b][v2_next] - g[v1_prev][v1_f]
+            - g[v1_b][v2_f] - g[v2_b][v2_next];
     }
     else {
-        delta = dt.getDistance(v1_prev, v2_f) + dt.getDistance(v2_b, v1_next)
-                + dt.getDistance(v2_prev, v1_f) + dt.getDistance(v1_b, v2_next)
-                - dt.getDistance(v1_prev, v1_f) - dt.getDistance(v1_b, v1_next)
-                - dt.getDistance(v2_prev, v2_f) - dt.getDistance(v2_b, v2_next);
+        delta = g[v1_prev][v2_f] + g[v2_b][v1_next]
+                + g[v2_prev][v1_f] + g[v1_b][v2_next]
+                - g[v1_prev][v1_f] - g[v1_b][v1_next]
+                - g[v2_prev][v2_f] - g[v2_b][v2_next];
     }
 
     s.cost += delta;
@@ -244,7 +245,7 @@ set<int> remainingNodes(vector<int> &sequence) {
     return nodes;
 }
 
-vector<InsertionInfo> getInsertionCosts(Data &dt, vector<int> &seq, set<int> &candidates) {
+vector<InsertionInfo> getInsertionCosts(vector<int> &seq, set<int> &candidates) {
     vector<InsertionInfo> s;
     s.reserve((seq.size() - 1) * (candidates.size()));
     
@@ -252,7 +253,7 @@ vector<InsertionInfo> getInsertionCosts(Data &dt, vector<int> &seq, set<int> &ca
         int i = seq[a];
         int j = seq[a + 1];
         for (int k : candidates) {
-            double cost = dt.getDistance(i,k) + dt.getDistance(k,j) - dt.getDistance(i,j);
+            double cost = g[i][k] + g[k][j] - g[i][j];
             s.push_back({k, a, cost});
         }
     }
@@ -260,7 +261,7 @@ vector<InsertionInfo> getInsertionCosts(Data &dt, vector<int> &seq, set<int> &ca
     return s;
 }
 
-bool bestImprovementSwap(Data &dt, Solution &s) {
+bool bestImprovementSwap(Solution &s) {
     double bestDelta = 0.0;
     int best_i = -1, best_j = -1;
 
@@ -276,13 +277,13 @@ bool bestImprovementSwap(Data &dt, Solution &s) {
 
             double delta;
             if (i + 1 == j)
-                delta = dt.getDistance(vi_prev, vj) + dt.getDistance(vj, vi) 
-                    + dt.getDistance(vi, vj_next) - dt.getDistance(vi_prev, vi)
-                    - dt.getDistance(vi, vj) - dt.getDistance(vj, vj_next);
+                delta = g[vi_prev][vj] + g[vj][vi] 
+                    + g[vi][vj_next] - g[vi_prev][vi]
+                    - g[vi][vj] - g[vj][vj_next];
             else
-                delta = dt.getDistance(vi_prev, vj) + dt.getDistance(vj, vi_next) 
-                    + dt.getDistance(vj_prev, vi) + dt.getDistance(vi, vj_next) - dt.getDistance(vi_prev, vi)
-                    - dt.getDistance(vi, vi_next) - dt.getDistance(vj_prev, vj) - dt.getDistance(vj, vj_next);
+                delta = g[vi_prev][vj] + g[vj][vi_next] 
+                    + g[vj_prev][vi] + g[vi][vj_next] - g[vi_prev][vi]
+                    - g[vi][vi_next] - g[vj_prev][vj] - g[vj][vj_next];
 
             if (delta < bestDelta) {
                 bestDelta = delta;
@@ -301,7 +302,7 @@ bool bestImprovementSwap(Data &dt, Solution &s) {
     return false;
 }
 
-bool bestImprovement2Opt(Data &dt, Solution &s) {
+bool bestImprovement2Opt(Solution &s) {
     double bestDelta = 0.0;
     int best_i = -1, best_j = -1;
 
@@ -313,8 +314,8 @@ bool bestImprovement2Opt(Data &dt, Solution &s) {
             int vj = s.sequence[j];
             int vj_next = s.sequence[j+1];
 
-            double delta = dt.getDistance(vi, vj) + dt.getDistance(vi_next, vj_next)
-                        - dt.getDistance(vi, vi_next) - dt.getDistance(vj, vj_next);
+            double delta = g[vi][vj] + g[vi_next][vj_next]
+                        - g[vi][vi_next] - g[vj][vj_next];
 
             if (delta < bestDelta) {
                 bestDelta = delta;
@@ -333,22 +334,18 @@ bool bestImprovement2Opt(Data &dt, Solution &s) {
     return false;
 }
 
-bool bestImprovementOrOpt(Data &dt, Solution &s, int blockSize) {
+bool bestImprovementOrOpt(Solution &s, int blockSize) {
     double bestDelta = 0.0;
-    vector<int> best_block;
     int best_i = -1, best_j = -1;
 
     for (int i = 0; i < s.sequence.size() - blockSize - 1; i++) {
-        vector<int> block;
-        for (int k = 0; k < blockSize; k++) block.push_back(s.sequence[i+k+1]);
-
         int vi = s.sequence[i];
         int vi_next = s.sequence[i+blockSize+1];
-        int vk_first = block[0];
-        int vk_last = block.back();
+        int vk_first = s.sequence[i+1];
+        int vk_last = s.sequence[i+blockSize];
 
         for (int j = 0; j < s.sequence.size() - 1; j++) {
-            // pula indices dentro do bloco
+            // j >= i && j <= i + blockSize
             if (i == j) {
                 j += blockSize;
                 continue;
@@ -356,27 +353,30 @@ bool bestImprovementOrOpt(Data &dt, Solution &s, int blockSize) {
             int vj = s.sequence[j];
             int vj_next = s.sequence[j+1];
 
-            double delta = dt.getDistance(vi, vi_next) + dt.getDistance(vj, vk_first)
-            + dt.getDistance(vk_last, vj_next) - dt.getDistance(vi, vk_first)
-            - dt.getDistance(vk_last, vi_next) - dt.getDistance(vj, vj_next);
+            double delta = g[vi][vi_next] + g[vj][vk_first]
+            + g[vk_last][vj_next] - g[vi][vk_first]
+            - g[vk_last][vi_next] - g[vj][vj_next];
 
             if (delta < bestDelta) {
                 best_i = i;
                 best_j = j;
-                best_block = block;
                 bestDelta = delta;
             }
         }
     }
 
     if (bestDelta < 0) {
+        int block_start = best_i + 1;
+        int block_end = best_i + 1 + blockSize;
+
         if (best_i < best_j) {
-            s.sequence.insert(s.sequence.begin() + best_j + 1, best_block.begin(), best_block.end());
-            s.sequence.erase(s.sequence.begin() + best_i + 1, s.sequence.begin() + best_i + blockSize + 1);
-        }
-        else {
-            s.sequence.erase(s.sequence.begin() + best_i + 1, s.sequence.begin() + best_i + blockSize + 1);
-            s.sequence.insert(s.sequence.begin() + best_j + 1, best_block.begin(), best_block.end());    
+            rotate(s.sequence.begin() + block_start,
+                s.sequence.begin() + block_end,
+                s.sequence.begin() + best_j + 1);
+        } else {
+            rotate(s.sequence.begin() + best_j + 1,
+                s.sequence.begin() + block_start,
+                s.sequence.begin() + block_end);
         }
         s.cost += bestDelta;
         return true;
@@ -391,8 +391,6 @@ void swap_subranges(vector<int> &v, int s1, int len1, int s2, int len2) {
     auto second_seg = v.begin() + s2;
     auto mid2 = second_seg + len2;
 
-    reverse(first_seg, mid1);
-    reverse(mid1, second_seg);
-    reverse(second_seg, mid2);
-    reverse(first_seg, mid2);
+    rotate(first_seg, mid1, second_seg);
+    rotate(first_seg, second_seg, mid2);
 }
