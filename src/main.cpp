@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <set>
 #include <ctime>
+#include <chrono>
 
 using namespace std;
 
@@ -52,7 +53,6 @@ int main(int argc, char** argv) {
     auto data = Data(argc, argv[1]);
     data.read();
 
-
     N = data.getDimension();
 
     g.resize(N+1, vector<double>(N+1, 0.0));
@@ -63,13 +63,21 @@ int main(int argc, char** argv) {
     int maxIter = 50;
     int maxIterIls = N >= 150 ? N / 2 : N;
 
-    Solution tsp = ILS(maxIter, maxIterIls);
+    int runs = 10;
+    double totalTime = 0.0, totalCost = 0.0;
 
-    cout << "Solução: ";
-    for (int x : tsp.sequence) 
-        cout << x << ' ';
-    cout << endl;
-    cout << "Custo: " << tsp.cost << endl;
+    for (int i = 0; i < runs; i++) {
+        auto start = chrono::high_resolution_clock::now();
+
+        Solution tsp = ILS(maxIter, maxIterIls);
+
+        auto end = chrono::high_resolution_clock::now();
+
+        chrono::duration<double> duration = end - start;
+        totalTime += duration.count();
+        totalCost += tsp.cost;
+    }
+    cout << totalTime / runs << ' ' << totalCost / runs << "\n\n";
 
     return 0;
 }
