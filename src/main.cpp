@@ -47,11 +47,11 @@ bool bestImprovementOrOpt(Solution &s, int blockSize);
 void swap_subranges(vector<int> &v, int s1, int len1, int s2, int len2);
 
 int main(int argc, char** argv) {
+    srand(time(NULL));
 
     auto data = Data(argc, argv[1]);
     data.read();
 
-    srand(time(NULL));
 
     N = data.getDimension();
 
