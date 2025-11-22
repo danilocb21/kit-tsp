@@ -25,18 +25,26 @@ void MLP::update_all_subsequences(Solution &solution) {
 }
 
 void MLP::update_subsequences(Solution &solution, size_t start, size_t end) {
-    int n = m_instance.getDimension();
+    int n = solution.sequence.size();
+
+    for (int i = start; i <= end; i++) {
+        subsequence_matrix[i][i].W = (i > 0);
+        subsequence_matrix[i][i].C = 0.0;
+        subsequence_matrix[i][i].T = 0.0;
+        subsequence_matrix[i][i].first = solution.sequence[i];
+        subsequence_matrix[i][i].last = solution.sequence[i];
+    }
 
     for (int i = 0; i <= end; i++)
-        for (int j = start; j < n; j++)
+        for (int j = max(static_cast<int>(start), i + 1); j < n; j++)
             subsequence_matrix[i][j] = concatenate(subsequence_matrix[i][j - 1], subsequence_matrix[j][j]);
             
-    for (int i = n-1; i >= start; i--) 
-        for (int j = end; j >= 0; j--)
+    for (int i = n - 1; i >= start; i--) 
+        for (int j = min(static_cast<int>(end), i - 1); j >= 0; j--)
             subsequence_matrix[i][j] = concatenate(subsequence_matrix[i][j + 1], subsequence_matrix[j][j]);
 }
 
-inline Subsequence MLP::concatenate(Subsequence &sigma_1, Subsequence &sigma_2) {
+Subsequence MLP::concatenate(Subsequence &sigma_1, Subsequence &sigma_2) {
     Subsequence sigma;
 
     double edge_cost = dist_matrix[sigma_1.last][sigma_2.first];

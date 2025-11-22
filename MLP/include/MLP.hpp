@@ -45,7 +45,7 @@ public:
 
     void update_all_subsequences(Solution &solution);
     void update_subsequences(Solution &solution, size_t start, size_t end);
-    inline Subsequence concatenate(Subsequence &sigma_1, Subsequence &sigma_2);
+    Subsequence concatenate(Subsequence &sigma_1, Subsequence &sigma_2);
 
     MLP(Data &instance);
 };
