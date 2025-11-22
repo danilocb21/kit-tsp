@@ -9,5 +9,5 @@ void Solution::print() const {
         std::cout << x << ' ';
     std::cout << '\n';
 
-    std::cout << "Cost: " << cost << '\n';
+    std::cout << "Cost: " << std::fixed << cost << '\n';
 }
