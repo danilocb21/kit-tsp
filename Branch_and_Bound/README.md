@@ -2,7 +2,7 @@
 
 #### My implementation of the Branch and Bound algorithm to solve the Traveling Salesman Problem for the Kit-LOG process.
 
-- [] Benchmark results
+- [ ] Benchmark results
 
 #### Usage:
 
