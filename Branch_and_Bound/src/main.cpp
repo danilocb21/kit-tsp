@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 
 #include "data.h"
 #include "hungarian.h"
@@ -31,8 +32,23 @@ int main(int argc, char** argv) {
 	else
 		branching_strategy = BnB::BranchingStrategy::MLB;
 
-	double s = tsp.solve(branching_strategy);
-	std::cout << "Objective val: " << s << '\n';
+	
+	uint8_t runs = 10;
+    double total_time = 0.0, total_cost = 0.0;
+
+    for (uint8_t i = 0; i < runs; i++) {
+        auto start = std::chrono::high_resolution_clock::now();
+
+        double s = tsp.solve(branching_strategy);
+
+        auto end = std::chrono::high_resolution_clock::now();
+
+        std::chrono::duration<double> duration = end - start;
+        total_time += duration.count();
+        total_cost += s;
+    }
+    
+    std::cout << std::fixed << total_time / runs << ' ' << total_cost / runs << "\n\n";	
 
 	for (int i = 0; i < n; i++) delete [] cost[i];
 	delete [] cost;
