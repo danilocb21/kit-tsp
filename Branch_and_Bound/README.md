@@ -1,4 +1,4 @@
-## Combinatorial Branch and Bound for the Traveling Salesman Problem problem
+## Combinatorial Branch and Bound for the Traveling Salesman Problem
 
 #### My implementation of the Branch and Bound algorithm to solve the Traveling Salesman Problem for the Kit-LOG process.
 
