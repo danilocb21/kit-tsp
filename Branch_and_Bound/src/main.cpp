@@ -21,11 +21,12 @@ int main(int argc, char** argv) {
 
 	BnB tsp(data, cost);
 
+	std::string strategy = argv[2];
 	BnB::BranchingStrategy branching_strategy;
 	
-	if (argv[2] == "DFS")
+	if (strategy == "DFS")
 		branching_strategy = BnB::BranchingStrategy::DFS;
-	else if (argv[2] == "BFS")
+	else if (strategy == "BFS")
 		branching_strategy = BnB::BranchingStrategy::BFS;
 	else
 		branching_strategy = BnB::BranchingStrategy::MLB;

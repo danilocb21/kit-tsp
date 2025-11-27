@@ -6,8 +6,6 @@ sources = files(
   'solve.cpp',
   'construction.cpp',
   'node.cpp',
-  
-  
 )
 
 incdir = include_directories('../include')
