@@ -2,7 +2,7 @@
 
 #### My implementation of the Branch and Bound algorithm to solve the Traveling Salesman Problem for the Kit-LOG process.
 
-- [ ] Benchmark results
+- [x] Benchmark results
 
 #### Usage:
 
@@ -30,5 +30,5 @@ meson compile -C <build_directory>
 Run the executable:
 
 ```
-./<build_directory>/src/tsp ./data/instances/<instance>
+./<build_directory>/src/tsp ./data/instances/<instance> <branching_strategy>
 ```
